@@ -25,7 +25,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             with open('templates/login.html', 'r') as file:
                 self.wfile.write(bytes(file.read(), 'utf-8'))
-        elif self.path == '/logout':
+        elif self.path == '/logout?' or self.path == '/logout': # I have no idea why it adds ? at the end
             # Redirect to the login form
             self.send_response(302)
             self.send_header('Location', '/login')
@@ -37,11 +37,6 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             with open('templates/login_successful.html', 'r') as file:
                 self.wfile.write(bytes(file.read(), 'utf-8'))
-        elif parsed_path.path == '/logout':
-            # Redirect to the login form
-            self.send_response(302)
-            self.send_header('Location', '/login')
-            self.end_headers()
         else:
             self.send_response(404)
             self.end_headers()
