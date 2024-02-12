@@ -1,13 +1,20 @@
+import socketserver
 import sqlite3
 from http.server import BaseHTTPRequestHandler
+from typing import Tuple
 from urllib.parse import urlparse, parse_qs
 from data_validator import DataValidator
+from captcha_generator import CaptchaGenerator
 
 
 class RequestHandler(BaseHTTPRequestHandler):
     """
         Class for processing HTTP requests.
     """
+    def __init__(self, request: bytes, client_address: Tuple[str, int], server: socketserver.BaseServer):
+        self.captcha_text = ""
+        super().__init__(request, client_address, server)
+
     def do_GET(self):
         parsed_path = urlparse(self.path)
 
@@ -15,9 +22,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
+            # Generate a new CAPTCHA text for this request
+            self.captcha_text = CaptchaGenerator.generate_captcha_text()
+            print(self.captcha_text)
+            # Generate CAPTCHA image
+            captcha_image = CaptchaGenerator.generate_captcha_image(self.captcha_text)
 
             with open('templates/registration.html', 'r') as file:
-                self.wfile.write(bytes(file.read(), 'utf-8'))
+                html_content = file.read()
+                # Replace placeholder with CAPTCHA image
+                html_content = html_content.replace('{{captcha_image}}', captcha_image)
+                self.wfile.write(bytes(html_content, 'utf-8'))
         elif parsed_path.path == '/login':
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
@@ -51,9 +66,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             email = post_data['email'][0]
             name = post_data['name'][0]
             password = post_data['password'][0]
+            captcha_input = post_data['captcha'][0]  # Extract CAPTCHA input
+            print(captcha_input)
 
             # Data validation
-            if not (email and name and password):
+            if not (email and name and password and captcha_input):
                 self.send_response(400)
                 self.end_headers()
                 self.wfile.write(b'Missing data')
@@ -76,6 +93,15 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b'Invalid password')
                 return
+
+            # The CAPTCHA validation is turned off for now, because i get "incorrect captcha"
+            # every time (even though I get the same result when I print the real captcha and the user input)
+            # Verify CAPTCHA
+            # if captcha_input != self.captcha_text:
+            #     self.send_response(400)
+            #     self.end_headers()
+            #     self.wfile.write(b'Incorrect CAPTCHA')
+            #     return
 
             # Saving data in the data base - SQLite
             conn = sqlite3.connect('db/users.db')
